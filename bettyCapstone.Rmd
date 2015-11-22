@@ -1,0 +1,121 @@
+---
+title: 'Yelp Dataset: Capstone Report for Data Science Specialization'
+author: "Betty Yeo"
+date: "Sunday, 22 November 2015"
+output: pdf_document
+---
+
+## 1. Introduction  
+
+Considering where to setup or expand business is the question to answer for the capstone project. This could interest entrepreneur in their business set up or expansion.  Typically, this could be done through data collection either through surveys or personally walk the ground to collect data but this would be too awesome a challenge given the constraint of time and resources. Fortunately, in these days, we found social media strewn wtih reviews and comments which could be used for our discretions. Yelp extensive data would be useful to dig into to give business user a sensing on how viable the venue and the features its offering features/facilities in their business venture.
+
+
+###  Methods
+
+The data is downloaded from Yelp Data Challenge at http://www.yelp.com/dataset_challenge. It is then save into my working directory as RDS format to save the time of downloading the huge data set.  
+
+For this exercise, i'm looking at business data which contain business unit, types of business, review rating and the features that the business adopts.  There is a total of 61k businesses from America and Europe.  For this exercise, i'll be looking at restaurant business as earlier exploration with data set shows that restaurant or food business is one of the highest business featured in Yelps.  
+
+```{r. global_ options, include = FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+```
+
+```{r, initiate_libraries}
+library(dplyr)
+library(ggplot2)
+library(jsonlite)
+library(xtable)
+library(plyr) 
+options(xtable.comment = FALSE)
+```
+
+
+```{r read, results="hide"}
+setwd("~/datasciencecoursera/Capstone")
+dataDir <- "./DataSet"
+bizDataRest <- readRDS(paste(dataDir, "bizDataRest.rds", sep="/"))
+
+bizDataRest<- subset(bizDataRest,regexpr("Restaurants",bizDataRest$categories)>0)
+keeps <-c('business_id','categories','city','review_count','name','state','stars','attributes.Good For Groups','attributes.Good for Kids','attributes.Has TV','attributes.Wi-Fi','wifi')
+
+bizDataRest<-bizDataRest[keeps]
+
+```
+
+### The Approach
+
+```{r echo=FALSE}
+qplot(state, data=bizDataRest, geom="freqpoly", group=stars,  position="identity",color=factor(stars))+
+theme(axis.text.x=element_text(size=10, angle=80,hjust=1))
+
+```
+
+From qplot, we notice that Arizona (AZ) is the highest state.  Hence, we will look at the cities which has the highest number of registered restaurants in Arizona given that it's one of populated state and one which is the highest rated State. 
+
+```{r echo=FALSE}
+bizRAZ <-  bizDataRest[which(bizDataRest$state == 'AZ'),]
+qplot(city, data=bizRAZ, geom="freqpoly", group=stars,  position="identity",color=factor(stars))+
+theme(axis.text.x=element_text(size=5, angle=80,hjust=1))
+```
+
+From the city graph, it appears that **Phoenix**, **Scottsdale** and **Tempe** peaked above the others in terms of the number of restaurants found which is more than 200 restaurants. That does not mean that these 3 cities have the highest rated restaurants in the States.  But from the data, it does suggest that Phoenix is thei highest in AZ.  Not only did it have the largest restaurants, its rating peaked above the others as well. Well, one could really scrutinise even to the types of cuisine or the features that makes Phoenix a popular choice. 
+
+We now examine the four features performance in AZ. 
+
+```{r echo=FALSE}
+qplot(city, data=bizRAZ, geom="freqpoly", group=wifi,  position="identity",color=factor(wifi))+
+theme(axis.text.x=element_text(size=5, angle=80,hjust=1))
+```
+
+There was some transformation done at the data as the data value included "no", "NA", "free" and "paid".  As a typical consumer, one would typically give a higher rating if the service is provided free.  As such a rating of 2 is given.  No wifi is given score of 0 and paid wifi is given a score of 1.  There will be dispute if score of 1 should be given for paid wifi, but the reasoning is that at least the feature is available and one could then decide to pay if there is an urgency needed. Looking at top 3 cities, Phoenix, Scottsdale and Tempe, it is quite consistent that the 3 of them are the highest in terms of free wifi service given. 
+
+```{r echo=FALSE}
+qplot(city, data=bizRAZ, geom="freqpoly", group='attributes.Has TV',  position="identity",color=factor('attributes.Has TV'))+
+theme(axis.text.x=element_text(size=5, angle=80,hjust=1))
+```
+Same observation as above applied to the availability of TV found in restaurant.
+
+```{r echo=FALSE}
+qplot(city, data=bizRAZ, geom="freqpoly", group='attributes.Good For Groups',  position="identity",color=factor('attributes.Good For Groups'))+
+theme(axis.text.x=element_text(size=5, angle=80,hjust=1))
+```
+Same observation for the 3 cities in terms of attribute.Good for groups. 
+
+```{r echo=FALSE}
+qplot(city, data=bizRAZ, geom="freqpoly", group='attributes.Good for Kids',  position="identity",color=factor('attributes.Good for Kids'))+
+theme(axis.text.x=element_text(size=5, angle=80,hjust=1))
+
+```
+
+
+## 3. Results
+
+Regression modeling can be used to quantify the relationship between the features/facilities and the ratings that the restaurant gets.
+
+
+```{r simpleLM, echo=FALSE, results='asis'}
+
+bizFinal<-data.frame(bizRAZ$business_id, bizRAZ$city,bizRAZ$state, bizRAZ$stars, bizRAZ$"attributes.Good For Groups", bizRAZ$"attributes.Good for Kids", bizRAZ$"attributes.Has TV", bizRAZ$"attributes.Wi-Fi")
+names(bizFinal) <- c('businessID', 'city', 'state', 'stars', 'GoodForGroups','GoodForKids','HasTV','WiFi')
+
+bizFinal <- na.omit(bizFinal)
+
+fit1 <- lm(stars ~ GoodForGroups+GoodForKids+HasTV+WiFi, data = bizFinal)
+
+summary(fit1)
+
+xtable(summary(fit1)$coef)
+
+
+```
+The model is suggestive of the corelations. In particuar, the P-value for coefficients shows the 2 features kids friendly environment and the TV is significant compared to the rest. 
+
+## 4. Discussion
+Hence, we can infer that having a restaurant set up with kids friendliness in mind could be pivotal for a restaurant business. From the data exploration, we also see that the city fared best with all the four features present.  Vice versa for the other cities that do not have the high rating. On data exploration, if you were to examine the categories offered by the 3 top cities, they are almost similar.  
+
+On the whole, expanding the restaurant in any of the 3 cities with the provision of any of the features/facilites woud not impact the rating as the rating is already high.  But one thing for sure, because of the postiive and high rating, it could also benefit as the reviewers would pick the popular spot and so it is good to be located in the popular belt. 
+
+####Assumptions for this analysis 
+* We examine common attributes of similar businesses which achieved good rating to learn and adopt their model.
+
+* We are not concerning ourselves with saturation of market, otherwise, other source of data would have to be used like the population census. 
